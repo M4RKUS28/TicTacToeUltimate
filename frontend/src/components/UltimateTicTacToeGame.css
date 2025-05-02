@@ -457,3 +457,60 @@
       opacity: 0;
     }
   }
+
+
+  /* Add these to your UltimateTicTacToeGame.css file */
+
+.waiting-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  }
+  
+  .waiting-message h2 {
+    margin-bottom: 20px;
+    color: #FFD700;
+    text-align: center;
+  }
+  
+  .loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    border-top-color: #FFD700;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  .connection-status {
+    margin-top: 10px;
+  }
+  
+  .connection-status .connected {
+    color: #4CAF50;
+    font-weight: bold;
+  }
+  
+  .connection-status .disconnected {
+    color: #FF5252;
+    font-weight: bold;
+  }
+  
+  .player-info {
+    margin-top: 10px;
+  }
+  
+  .player-info p {
+    font-size: 1rem;
+    margin: 5px 0;
+  }
