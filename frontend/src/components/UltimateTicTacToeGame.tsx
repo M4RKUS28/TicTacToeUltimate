@@ -1,20 +1,33 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GameState, GameMode, Move } from '../types/GameTypes';
-import { applyMove, createEmptyUltimateBoard, isValidMove } from '../utils/GameUtils';
+import { GameState, GameMode, Move, Player } from '../types/GameTypes';
+import { 
+  createEmptyUltimateBoard, 
+  checkWinner, 
+  isBoardFull, 
+  applyMove,
+  getAIMove,
+  isValidMove,
+  coordinatesToIndex,
+  getMacroBoard
+} from '../utils/GameUtils';
 import { createSocketService, SocketService } from '../services/SocketService';
 import aiService from '../services/AIService';
-import GameBoard from './GameBoard';
-import ConfettiEffect from './ConfettiEffect';
-import './UltimateTicTacToeGame.css';
-
 import {
+  boardVariants,
+  cellVariants,
+  gameBoardVariants,
+  xMarkVariants,
+  oMarkVariants,
   buttonVariants,
   textVariants,
   winnerVariants,
+  winLineVariants,
   menuVariants,
   containerVariants
 } from '../utils/AnimationVariants';
+
+import './UltimateTicTacToeGame.css';
 
 // Initial game state
 const initialGameState: GameState = {
@@ -29,9 +42,7 @@ const initialGameState: GameState = {
   gameOver: false
 };
 
-/**
- * Main component for the Ultimate Tic Tac Toe game
- */
+// Component for the Ultimate Tic Tac Toe game
 const UltimateTicTacToeGame: React.FC = () => {
   // Game state
   const [gameState, setGameState] = useState<GameState>({ ...initialGameState });
@@ -247,7 +258,267 @@ const UltimateTicTacToeGame: React.FC = () => {
     socketRef.current.emit('leaveGame', {});
   };
   
-  // Render the game board and controls
+  // Check if a cell is playable
+  const isCellPlayable = (boardIndex: number, row: number, col: number): boolean => {
+    const move: Omit<Move, 'player'> = { boardIndex, row, col };
+    return isValidMove(gameState, move);
+  };
+  
+  // Render a single cell in a small board
+  const renderCell = (boardIndex: number, row: number, col: number) => {
+    const cellValue = gameState.boards[boardIndex][row][col];
+    const playable = isCellPlayable(boardIndex, row, col);
+    
+    return (
+      <motion.div
+        className={`cell ${playable ? 'playable' : ''}`}
+        variants={cellVariants}
+        onClick={() => handleCellClick(boardIndex, row, col)}
+        whileHover={playable ? 'hover' : undefined}
+        whileTap={playable ? 'tap' : undefined}
+        custom={cellValue}
+      >
+        <AnimatePresence mode="wait">
+          {cellValue === 'X' && (
+            <motion.div
+              key={`x-${boardIndex}-${row}-${col}`}
+              className="mark x-mark"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <svg viewBox="0 0 24 24" width="100%" height="100%">
+                <motion.path
+                  d="M 5 5 L 19 19"
+                  stroke="#FF5252"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  variants={xMarkVariants}
+                />
+                <motion.path
+                  d="M 19 5 L 5 19"
+                  stroke="#FF5252"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  variants={xMarkVariants}
+                  transition={{ delay: 0.1 }}
+                />
+              </svg>
+            </motion.div>
+          )}
+          
+          {cellValue === 'O' && (
+            <motion.div
+              key={`o-${boardIndex}-${row}-${col}`}
+              className="mark o-mark"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <svg viewBox="0 0 24 24" width="100%" height="100%">
+                <motion.circle
+                  cx="12"
+                  cy="12"
+                  r="7"
+                  fill="none"
+                  stroke="#4CAF50"
+                  strokeWidth="3"
+                  variants={oMarkVariants}
+                />
+              </svg>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    );
+  };
+  
+  // Render a win line for a small board
+  const renderWinLine = (boardIndex: number) => {
+    const { boards, boardWinners } = gameState;
+    const winner = boardWinners[boardIndex];
+    
+    if (!winner) return null;
+    
+    // Determine the winning line (row, column, or diagonal)
+    
+    // Check rows
+    for (let i = 0; i < 3; i++) {
+      if (boards[boardIndex][i][0] === winner && 
+          boards[boardIndex][i][1] === winner && 
+          boards[boardIndex][i][2] === winner) {
+        return (
+          <motion.div className="win-line horizontal" custom={i} variants={winLineVariants}>
+            <svg width="100%" height="100%" viewBox="0 0 100 100">
+              <motion.line
+                x1="10"
+                y1={(i * 33.33) + 16.67}
+                x2="90"
+                y2={(i * 33.33) + 16.67}
+                stroke={winner === 'X' ? '#FF5252' : '#4CAF50'}
+                strokeWidth="3"
+                strokeLinecap="round"
+                variants={winLineVariants}
+              />
+            </svg>
+          </motion.div>
+        );
+      }
+    }
+    
+    // Check columns
+    for (let i = 0; i < 3; i++) {
+      if (boards[boardIndex][0][i] === winner && 
+          boards[boardIndex][1][i] === winner && 
+          boards[boardIndex][2][i] === winner) {
+        return (
+          <motion.div className="win-line vertical" custom={i} variants={winLineVariants}>
+            <svg width="100%" height="100%" viewBox="0 0 100 100">
+              <motion.line
+                x1={(i * 33.33) + 16.67}
+                y1="10"
+                x2={(i * 33.33) + 16.67}
+                y2="90"
+                stroke={winner === 'X' ? '#FF5252' : '#4CAF50'}
+                strokeWidth="3"
+                strokeLinecap="round"
+                variants={winLineVariants}
+              />
+            </svg>
+          </motion.div>
+        );
+      }
+    }
+    
+    // Check diagonal (top-left to bottom-right)
+    if (boards[boardIndex][0][0] === winner && 
+        boards[boardIndex][1][1] === winner && 
+        boards[boardIndex][2][2] === winner) {
+      return (
+        <motion.div className="win-line diagonal-1" variants={winLineVariants}>
+          <svg width="100%" height="100%" viewBox="0 0 100 100">
+            <motion.line
+              x1="10"
+              y1="10"
+              x2="90"
+              y2="90"
+              stroke={winner === 'X' ? '#FF5252' : '#4CAF50'}
+              strokeWidth="3"
+              strokeLinecap="round"
+              variants={winLineVariants}
+            />
+          </svg>
+        </motion.div>
+      );
+    }
+    
+    // Check diagonal (top-right to bottom-left)
+    if (boards[boardIndex][0][2] === winner && 
+        boards[boardIndex][1][1] === winner && 
+        boards[boardIndex][2][0] === winner) {
+      return (
+        <motion.div className="win-line diagonal-2" variants={winLineVariants}>
+          <svg width="100%" height="100%" viewBox="0 0 100 100">
+            <motion.line
+              x1="90"
+              y1="10"
+              x2="10"
+              y2="90"
+              stroke={winner === 'X' ? '#FF5252' : '#4CAF50'}
+              strokeWidth="3"
+              strokeLinecap="round"
+              variants={winLineVariants}
+            />
+          </svg>
+        </motion.div>
+      );
+    }
+    
+    return null;
+  };
+  
+  // Render a small board
+  const renderBoard = (boardIndex: number) => {
+    const { boardWinners, nextBoard } = gameState;
+    const winner = boardWinners[boardIndex];
+    const isActive = nextBoard === null || nextBoard === boardIndex || boardWinners[nextBoard] !== null;
+    const isNextBoard = nextBoard === boardIndex && boardWinners[boardIndex] === null;
+    
+    // Board state for animation variants
+    let boardState = 'visible';
+    if (winner === 'X') boardState = 'won';
+    else if (winner === 'O') boardState = 'lost';
+    else if (winner === null && isBoardFull(gameState.boards[boardIndex])) boardState = 'draw';
+    else if (isNextBoard) boardState = 'active';
+    else if (!isActive) boardState = 'inactive';
+    
+    return (
+      <motion.div 
+        className={`board ${isActive ? 'active' : ''} ${isNextBoard ? 'next-board' : ''} ${winner ? `winner-${winner}` : ''}`}
+        variants={boardVariants}
+        animate={boardState}
+      >
+        {winner ? (
+          <motion.div 
+            className={`board-winner winner-${winner}`}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", damping: 8 }}
+          >
+            {winner === 'X' ? (
+              <svg viewBox="0 0 24 24" width="80%" height="80%">
+                <motion.path
+                  d="M 5 5 L 19 19"
+                  stroke="#FF5252"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ duration: 0.4 }}
+                />
+                <motion.path
+                  d="M 19 5 L 5 19"
+                  stroke="#FF5252"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ duration: 0.4, delay: 0.1 }}
+                />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="80%" height="80%">
+                <motion.circle
+                  cx="12"
+                  cy="12"
+                  r="7"
+                  fill="none"
+                  stroke="#4CAF50"
+                  strokeWidth="3"
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ duration: 0.5 }}
+                />
+              </svg>
+            )}
+          </motion.div>
+        ) : (
+          <div className="board-grid">
+            {Array(3).fill(null).map((_, row) => (
+              Array(3).fill(null).map((_, col) => (
+                <div key={`cell-${boardIndex}-${row}-${col}`} className="cell-wrapper">
+                  {renderCell(boardIndex, row, col)}
+                </div>
+              ))
+            ))}
+            {renderWinLine(boardIndex)}
+          </div>
+        )}
+      </motion.div>
+    );
+  };
+  
+  // Render the ultimate game board
   const renderGameBoard = () => {
     return (
       <motion.div 
@@ -256,84 +527,82 @@ const UltimateTicTacToeGame: React.FC = () => {
         initial="hidden"
         animate="visible"
       >
-        <div className="game-board-container">
-          <GameBoard 
-            gameState={gameState}
-            onCellClick={handleCellClick}
-            aiThinking={aiThinking}
-          />
+        <motion.div
+          className="ultimate-board"
+          variants={gameBoardVariants}
+        >
+          {Array(9).fill(null).map((_, index) => (
+            <div key={`board-${index}`} className="board-wrapper">
+              {renderBoard(index)}
+            </div>
+          ))}
           
-          <AnimatePresence>
-            {showWinAnimation && gameState.winner && (
-              <motion.div
-                className="game-winner"
-                variants={winnerVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-              >
-                <h2>
-                  {gameState.winner === 'X' ? 'X Wins!' : 'O Wins!'}
-                </h2>
-                <div className="winner-buttons">
-                  <motion.button
-                    className="play-again-btn"
-                    onClick={resetGame}
-                    variants={buttonVariants}
-                    whileHover="hover"
-                    whileTap="tap"
-                  >
-                    Play Again
-                  </motion.button>
-                  <motion.button
-                    className="menu-btn"
-                    onClick={goToMenu}
-                    variants={buttonVariants}
-                    whileHover="hover"
-                    whileTap="tap"
-                  >
-                    Main Menu
-                  </motion.button>
-                </div>
-              </motion.div>
-            )}
-            
-            {gameState.gameOver && !gameState.winner && (
-              <motion.div
-                className="game-winner"
-                variants={winnerVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-              >
-                <h2>It's a Draw!</h2>
-                <div className="winner-buttons">
-                  <motion.button
-                    className="play-again-btn"
-                    onClick={resetGame}
-                    variants={buttonVariants}
-                    whileHover="hover"
-                    whileTap="tap"
-                  >
-                    Play Again
-                  </motion.button>
-                  <motion.button
-                    className="menu-btn"
-                    onClick={goToMenu}
-                    variants={buttonVariants}
-                    whileHover="hover"
-                    whileTap="tap"
-                  >
-                    Main Menu
-                  </motion.button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {showWinAnimation && gameState.winner && (
+            <motion.div
+              className="game-winner"
+              variants={winnerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <h2>
+                {gameState.winner === 'X' ? 'X Wins!' : 'O Wins!'}
+              </h2>
+              <div className="winner-buttons">
+                <motion.button
+                  className="play-again-btn"
+                  onClick={resetGame}
+                  variants={buttonVariants}
+                  whileHover="hover"
+                  whileTap="tap"
+                >
+                  Play Again
+                </motion.button>
+                <motion.button
+                  className="menu-btn"
+                  onClick={goToMenu}
+                  variants={buttonVariants}
+                  whileHover="hover"
+                  whileTap="tap"
+                >
+                  Main Menu
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
           
-          {/* Confetti effect when there's a winner */}
-          <ConfettiEffect winner={gameState.winner} />
-        </div>
+          {gameState.gameOver && !gameState.winner && (
+            <motion.div
+              className="game-winner"
+              variants={winnerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <h2>It's a Draw!</h2>
+              <div className="winner-buttons">
+                <motion.button
+                  className="play-again-btn"
+                  onClick={resetGame}
+                  variants={buttonVariants}
+                  whileHover="hover"
+                  whileTap="tap"
+                >
+                  Play Again
+                </motion.button>
+                <motion.button
+                  className="menu-btn"
+                  onClick={goToMenu}
+                  variants={buttonVariants}
+                  whileHover="hover"
+                  whileTap="tap"
+                >
+                  Main Menu
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
         
         <motion.div
           className="game-info"
@@ -344,7 +613,7 @@ const UltimateTicTacToeGame: React.FC = () => {
               <span className={gameState.currentPlayer === 'X' ? 'x-text' : 'o-text'}>
                 {gameState.currentPlayer}
               </span>
-              {aiThinking && <span className="thinking-indicator"> AI is thinking...</span>}
+              {aiThinking && <span className="thinking-indicator">AI is thinking...</span>}
             </h3>
           </div>
           
@@ -437,10 +706,8 @@ const UltimateTicTacToeGame: React.FC = () => {
         >
           <h3>How to Play</h3>
           <p>
-            Each small board is like a regular tic tac toe game. Win three small boards in a row to win the game!
-          </p>
-          <p>
-            The trick: When a player places their mark, the next player must play in the small board corresponding to the cell position of the previous move. If that board is already won or full, you can choose any available board.
+            Play in the small board corresponding to the last move.
+            Win three small boards in a row to win the game!
           </p>
         </motion.div>
       </motion.div>
