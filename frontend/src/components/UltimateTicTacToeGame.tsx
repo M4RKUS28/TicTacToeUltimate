@@ -6,13 +6,13 @@ import {
   checkWinner, 
   isBoardFull, 
   applyMove,
-  getAIMove,
   isValidMove,
   coordinatesToIndex,
   getMacroBoard
 } from '../utils/GameUtils';
-import { createSocketService, SocketService } from '../services/SocketService';
-import aiService from '../services/AIService';
+import { webSocketService } from '../services/WebSocketService';
+import apiService from '../services/ApiService';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   boardVariants,
   cellVariants,
@@ -26,8 +26,7 @@ import {
   menuVariants,
   containerVariants
 } from '../utils/AnimationVariants';
-
-import './UltimateTicTacToeGame.css';
+import ConfettiEffect from './ConfettiEffect';
 
 // Initial game state
 const initialGameState: GameState = {
@@ -49,13 +48,143 @@ const UltimateTicTacToeGame: React.FC = () => {
   const [aiThinking, setAiThinking] = useState<boolean>(false);
   const [showWinAnimation, setShowWinAnimation] = useState<boolean>(false);
   
+  // WebSocket and lobby state
+  const [connected, setConnected] = useState<boolean>(false);
+  const [lobbyInfo, setLobbyInfo] = useState<any>(null);
+  const [playerInfo, setPlayerInfo] = useState<{ id: string, name: string } | null>(null);
+  const [waitingForOpponent, setWaitingForOpponent] = useState<boolean>(false);
+  const [loadingMessage, setLoadingMessage] = useState<string>('');
+  
   // Refs
-  const socketRef = useRef<SocketService>(createSocketService());
   const animatingRef = useRef<boolean>(false);
+  
+  const { lobbyId } = useParams<{ lobbyId: string }>();
+  const navigate = useNavigate();
+
+  // Initialize WebSocket connection and lobby info
+  useEffect(() => {
+    const playerId = localStorage.getItem('playerId');
+    const playerName = localStorage.getItem('playerName');
+    
+    if (!lobbyId || !playerId || !playerName) {
+      // Redirect to lobby page if missing info
+      navigate('/');
+      return;
+    }
+    
+    setPlayerInfo({ id: playerId, name: playerName });
+    
+    // Fetch lobby info
+    const fetchLobbyInfo = async () => {
+      const lobby = await apiService.getLobby(lobbyId);
+      if (lobby) {
+        setLobbyInfo(lobby);
+        
+        // Set game mode based on lobby type
+        let gameMode: GameMode = 'player-vs-player';
+        
+        if (lobby.lobby_type === 'PLAYER_VS_BOT') {
+          gameMode = 'ai-vs-player';
+          setLoadingMessage('Waiting for a bot to join...');
+        } else if (lobby.lobby_type === 'BOT_VS_BOT') {
+          gameMode = 'ai-vs-ai';
+          setLoadingMessage('Waiting for bots to start playing...');
+        }
+        
+        // Check if we're waiting for an opponent
+        if (lobby.players.length < 2) {
+          setWaitingForOpponent(true);
+          if (gameMode === 'player-vs-player') {
+            setLoadingMessage('Waiting for another player to join...');
+          }
+        }
+        
+        setGameState(prev => ({
+          ...prev,
+          gameMode,
+          gameStarted: true
+        }));
+      } else {
+        // Lobby not found, redirect to main menu
+        alert('Lobby not found');
+        navigate('/');
+      }
+    };
+    
+    fetchLobbyInfo();
+    
+    // Set up polling to check lobby status
+    const pollInterval = setInterval(async () => {
+      if (waitingForOpponent) {
+        const updatedLobby = await apiService.getLobby(lobbyId);
+        if (updatedLobby && updatedLobby.players.length === 2) {
+          setWaitingForOpponent(false);
+          setLobbyInfo(updatedLobby);
+          
+          // Start the connection once opponent has joined
+          connectToWebSocket(lobbyId, playerId);
+        }
+      }
+    }, 3000);
+    
+    // Connect to WebSocket if lobby is already full
+    if (lobbyInfo && lobbyInfo.players.length === 2) {
+      connectToWebSocket(lobbyId, playerId);
+    }
+    
+    return () => {
+      clearInterval(pollInterval);
+      webSocketService.disconnect();
+    };
+  }, [lobbyId, navigate, lobbyInfo, waitingForOpponent]);
+  
+  // Function to connect to WebSocket
+  const connectToWebSocket = async (lobbyId: string, playerId: string) => {
+    const success = await webSocketService.connect(lobbyId, playerId);
+    setConnected(success);
+    
+    if (success) {
+      // Add message listener
+      const unsubscribe = webSocketService.addMessageListener((message) => {
+        // Handle incoming messages
+        if (message.last_move) {
+          // Apply the move
+          const [row, col] = message.last_move;
+          
+          // Calculate board index and cell
+          const boardIndex = Math.floor(row / 3) * 3 + Math.floor(col / 3);
+          const cellRow = row % 3;
+          const cellCol = col % 3;
+          
+          // Create move object
+          const move: Move = {
+            boardIndex,
+            row: cellRow,
+            col: cellCol,
+            player: gameState.currentPlayer
+          };
+          
+          // Apply the move
+          const updatedState = applyMove(gameState, move);
+          setGameState(updatedState);
+        } else if (typeof message === 'string') {
+          // Game over message
+          if (message.startsWith('Winner:') || message === 'Draw') {
+            setShowWinAnimation(true);
+          }
+        }
+      });
+      
+      return unsubscribe;
+    } else {
+      alert('Failed to connect to game server. Please try again.');
+      navigate('/');
+    }
+  };
   
   // Handle cell click
   const handleCellClick = useCallback((boardIndex: number, row: number, col: number) => {
-    if (animatingRef.current || aiThinking) return;
+    if (animatingRef.current || aiThinking || !connected || waitingForOpponent) return;
     
     const { gameMode, currentPlayer, gameOver } = gameState;
     
@@ -64,6 +193,22 @@ const UltimateTicTacToeGame: React.FC = () => {
         (gameMode === 'ai-vs-player' && currentPlayer === 'O') ||
         gameMode === 'ai-vs-ai') {
       return;
+    }
+    
+    // Determine player number based on lobby info and player info
+    if (lobbyInfo && playerInfo) {
+      const player = lobbyInfo.players.find((p: any) => p.id === playerInfo.id);
+      const playerNumber = player ? player.player_number : null;
+      
+      // Check if it's this player's turn
+      const isPlayerTurn = 
+        (playerNumber === 1 && currentPlayer === 'X') || 
+        (playerNumber === 2 && currentPlayer === 'O');
+      
+      if (!isPlayerTurn) {
+        alert("It's not your turn!");
+        return;
+      }
     }
     
     // Create move object
@@ -79,12 +224,21 @@ const UltimateTicTacToeGame: React.FC = () => {
       return;
     }
     
-    // Apply the move
+    // Calculate global row and col for the backend
+    const globalRow = Math.floor(boardIndex / 3) * 3 + row;
+    const globalCol = (boardIndex % 3) * 3 + col;
+    
+    // Send the move to the WebSocket
+    webSocketService.sendMove({
+      boardIndex,
+      row: globalRow,
+      col: globalCol,
+      player: currentPlayer
+    });
+    
+    // Apply the move locally - this will be overridden by server response
     animatingRef.current = true;
     const updatedState = applyMove(gameState, move);
-    
-    // Emit the move to the socket
-    socketRef.current.emit('makeMove', move);
     
     // Update game state
     setGameState(updatedState);
@@ -98,119 +252,7 @@ const UltimateTicTacToeGame: React.FC = () => {
     setTimeout(() => {
       animatingRef.current = false;
     }, 500);
-  }, [gameState, aiThinking]);
-  
-  // Handle AI moves
-  useEffect(() => {
-    if (!gameState.gameStarted || gameState.gameOver || animatingRef.current) return;
-    
-    const { gameMode, currentPlayer } = gameState;
-    
-    // AI vs AI mode
-    if (gameMode === 'ai-vs-ai') {
-      setAiThinking(true);
-      
-      const timer = setTimeout(async () => {
-        animatingRef.current = true;
-        
-        try {
-          const aiMove = await aiService.getMove(gameState);
-          
-          const move: Move = {
-            ...aiMove,
-            player: currentPlayer
-          };
-          
-          // Apply the move
-          const updatedState = applyMove(gameState, move);
-          
-          // Emit the move to the socket
-          socketRef.current.emit('makeMove', move);
-          
-          // Update game state
-          setGameState(updatedState);
-          
-          // Set win animation if game is over
-          if (updatedState.winner) {
-            setShowWinAnimation(true);
-          }
-        } catch (error) {
-          console.error('Error getting AI move:', error);
-        } finally {
-          setTimeout(() => {
-            animatingRef.current = false;
-            setAiThinking(false);
-          }, 500);
-        }
-      }, 1000);
-      
-      return () => clearTimeout(timer);
-    }
-    
-    // AI vs Player mode (AI is always O)
-    if (gameMode === 'ai-vs-player' && currentPlayer === 'O') {
-      setAiThinking(true);
-      
-      const timer = setTimeout(async () => {
-        animatingRef.current = true;
-        
-        try {
-          const aiMove = await aiService.getMove(gameState);
-          
-          const move: Move = {
-            ...aiMove,
-            player: currentPlayer
-          };
-          
-          // Apply the move
-          const updatedState = applyMove(gameState, move);
-          
-          // Emit the move to the socket
-          socketRef.current.emit('makeMove', move);
-          
-          // Update game state
-          setGameState(updatedState);
-          
-          // Set win animation if game is over
-          if (updatedState.winner) {
-            setShowWinAnimation(true);
-          }
-        } catch (error) {
-          console.error('Error getting AI move:', error);
-        } finally {
-          setTimeout(() => {
-            animatingRef.current = false;
-            setAiThinking(false);
-          }, 500);
-        }
-      }, 800);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [gameState]);
-  
-  // Socket event listeners
-  useEffect(() => {
-    const socket = socketRef.current;
-    
-    // Connect to the socket
-    socket.connect();
-    
-    // Handler for board state updates
-    const handleBoardState = (data: any) => {
-      console.log('Received board state from server', data);
-      // We would implement board state updates here in a real app
-      // As per requirements, we're ignoring player actions from the server
-    };
-    
-    // Register event handlers
-    socket.on('boardState', handleBoardState);
-    
-    // Cleanup
-    return () => {
-      socket.disconnect();
-    };
-  }, []);
+  }, [gameState, aiThinking, connected, waitingForOpponent, lobbyInfo, playerInfo]);
   
   // Start a new game
   const startGame = (mode: GameMode) => {
@@ -223,13 +265,24 @@ const UltimateTicTacToeGame: React.FC = () => {
       gameMode: mode,
       gameStarted: true
     });
-    
-    // Emit event to server
-    socketRef.current.emit('startGame', { gameMode: mode });
   };
   
   // Reset the current game
   const resetGame = () => {
+    if (!connected) {
+      alert('Not connected to server');
+      return;
+    }
+    
+    // Ask the server to reset the game
+    webSocketService.sendMove({
+      boardIndex: -1, // Special value for reset
+      row: -1,
+      col: -1,
+      player: gameState.currentPlayer
+    });
+    
+    // Local reset
     setShowWinAnimation(false);
     setAiThinking(false);
     animatingRef.current = false;
@@ -239,29 +292,51 @@ const UltimateTicTacToeGame: React.FC = () => {
       gameMode: prev.gameMode,
       gameStarted: true
     }));
-    
-    // Emit event to server
-    socketRef.current.emit('resetGame', {});
   };
   
   // Return to main menu
   const goToMenu = () => {
+    // Disconnect WebSocket
+    webSocketService.disconnect();
+    
+    // Clear local storage
+    localStorage.removeItem('playerId');
+    localStorage.removeItem('playerName');
+    localStorage.removeItem('lobbyId');
+    
+    // Reset state
     setShowWinAnimation(false);
     setAiThinking(false);
     animatingRef.current = false;
+    setConnected(false);
+    setLobbyInfo(null);
+    setPlayerInfo(null);
+    setWaitingForOpponent(false);
     
-    setGameState({
-      ...initialGameState
-    });
-    
-    // Emit event to server
-    socketRef.current.emit('leaveGame', {});
+    // Navigate to lobby page
+    navigate('/');
   };
   
   // Check if a cell is playable
   const isCellPlayable = (boardIndex: number, row: number, col: number): boolean => {
+    if (!connected || waitingForOpponent) return false;
+    
     const move: Omit<Move, 'player'> = { boardIndex, row, col };
-    return isValidMove(gameState, move);
+    let isPlayable = isValidMove(gameState, move);
+    
+    // Check if it's this player's turn
+    if (lobbyInfo && playerInfo) {
+      const player = lobbyInfo.players.find((p: any) => p.id === playerInfo.id);
+      const playerNumber = player ? player.player_number : null;
+      
+      const isPlayerTurn = 
+        (playerNumber === 1 && gameState.currentPlayer === 'X') || 
+        (playerNumber === 2 && gameState.currentPlayer === 'O');
+      
+      isPlayable = isPlayable && isPlayerTurn;
+    }
+    
+    return isPlayable;
   };
   
   // Render a single cell in a small board
@@ -527,36 +602,144 @@ const UltimateTicTacToeGame: React.FC = () => {
         initial="hidden"
         animate="visible"
       >
-        <motion.div
-          className="ultimate-board"
-          variants={gameBoardVariants}
-        >
-          {Array(9).fill(null).map((_, index) => (
-            <div key={`board-${index}`} className="board-wrapper">
-              {renderBoard(index)}
-            </div>
-          ))}
-          
-          {showWinAnimation && gameState.winner && (
+        {waitingForOpponent ? (
+          <motion.div
+            className="waiting-message"
+            variants={textVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <h2>{loadingMessage}</h2>
+            <div className="loading-spinner"></div>
+          </motion.div>
+        ) : (
+          <>
             <motion.div
-              className="game-winner"
-              variants={winnerVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
+              className="ultimate-board"
+              variants={gameBoardVariants}
             >
-              <h2>
-                {gameState.winner === 'X' ? 'X Wins!' : 'O Wins!'}
-              </h2>
-              <div className="winner-buttons">
+              {Array(9).fill(null).map((_, index) => (
+                <div key={`board-${index}`} className="board-wrapper">
+                  {renderBoard(index)}
+                </div>
+              ))}
+              
+              {showWinAnimation && gameState.winner && (
+                <motion.div
+                  className="game-winner"
+                  variants={winnerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                >
+                  <h2>
+                    {gameState.winner === 'X' ? 'X Wins!' : 'O Wins!'}
+                  </h2>
+                  <div className="winner-buttons">
+                    <motion.button
+                      className="play-again-btn"
+                      onClick={resetGame}
+                      variants={buttonVariants}
+                      whileHover="hover"
+                      whileTap="tap"
+                    >
+                      Play Again
+                    </motion.button>
+                    <motion.button
+                      className="menu-btn"
+                      onClick={goToMenu}
+                      variants={buttonVariants}
+                      whileHover="hover"
+                      whileTap="tap"
+                    >
+                      Main Menu
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+              
+              {gameState.gameOver && !gameState.winner && (
+                <motion.div
+                  className="game-winner"
+                  variants={winnerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                >
+                  <h2>It's a Draw!</h2>
+                  <div className="winner-buttons">
+                    <motion.button
+                      className="play-again-btn"
+                      onClick={resetGame}
+                      variants={buttonVariants}
+                      whileHover="hover"
+                      whileTap="tap"
+                    >
+                      Play Again
+                    </motion.button>
+                    <motion.button
+                      className="menu-btn"
+                      onClick={goToMenu}
+                      variants={buttonVariants}
+                      whileHover="hover"
+                      whileTap="tap"
+                    >
+                      Main Menu
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+              
+              {gameState.winner && (
+                <ConfettiEffect winner={gameState.winner} />
+              )}
+            </motion.div>
+            
+            <motion.div
+              className="game-info"
+              variants={textVariants}
+            >
+              <div className="current-player">
+                <h3>Current Player: 
+                  <span className={gameState.currentPlayer === 'X' ? 'x-text' : 'o-text'}>
+                    {gameState.currentPlayer}
+                  </span>
+                  {aiThinking && <span className="thinking-indicator">AI is thinking...</span>}
+                </h3>
+              </div>
+              
+              <div className="game-mode">
+                <h3>
+                  Game Mode: {gameState.gameMode.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' vs ')}
+                </h3>
+              </div>
+              
+              {lobbyInfo && lobbyInfo.players && (
+                <div className="player-info">
+                  <p>
+                    Players: {lobbyInfo.players.map((p: any) => p.name).join(' vs ')}
+                  </p>
+                </div>
+              )}
+              
+              <div className="connection-status">
+                <p>
+                  Connection: <span className={connected ? 'connected' : 'disconnected'}>
+                    {connected ? 'Connected' : 'Disconnected'}
+                  </span>
+                </p>
+              </div>
+              
+              <div className="game-controls">
                 <motion.button
-                  className="play-again-btn"
+                  className="reset-btn"
                   onClick={resetGame}
                   variants={buttonVariants}
                   whileHover="hover"
                   whileTap="tap"
+                  disabled={!connected}
                 >
-                  Play Again
+                  Reset Game
                 </motion.button>
                 <motion.button
                   className="menu-btn"
@@ -569,81 +752,8 @@ const UltimateTicTacToeGame: React.FC = () => {
                 </motion.button>
               </div>
             </motion.div>
-          )}
-          
-          {gameState.gameOver && !gameState.winner && (
-            <motion.div
-              className="game-winner"
-              variants={winnerVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-            >
-              <h2>It's a Draw!</h2>
-              <div className="winner-buttons">
-                <motion.button
-                  className="play-again-btn"
-                  onClick={resetGame}
-                  variants={buttonVariants}
-                  whileHover="hover"
-                  whileTap="tap"
-                >
-                  Play Again
-                </motion.button>
-                <motion.button
-                  className="menu-btn"
-                  onClick={goToMenu}
-                  variants={buttonVariants}
-                  whileHover="hover"
-                  whileTap="tap"
-                >
-                  Main Menu
-                </motion.button>
-              </div>
-            </motion.div>
-          )}
-        </motion.div>
-        
-        <motion.div
-          className="game-info"
-          variants={textVariants}
-        >
-          <div className="current-player">
-            <h3>Current Player: 
-              <span className={gameState.currentPlayer === 'X' ? 'x-text' : 'o-text'}>
-                {gameState.currentPlayer}
-              </span>
-              {aiThinking && <span className="thinking-indicator">AI is thinking...</span>}
-            </h3>
-          </div>
-          
-          <div className="game-mode">
-            <h3>
-              Game Mode: {gameState.gameMode.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' vs ')}
-            </h3>
-          </div>
-          
-          <div className="game-controls">
-            <motion.button
-              className="reset-btn"
-              onClick={resetGame}
-              variants={buttonVariants}
-              whileHover="hover"
-              whileTap="tap"
-            >
-              Reset Game
-            </motion.button>
-            <motion.button
-              className="menu-btn"
-              onClick={goToMenu}
-              variants={buttonVariants}
-              whileHover="hover"
-              whileTap="tap"
-            >
-              Main Menu
-            </motion.button>
-          </div>
-        </motion.div>
+          </>
+        )}
       </motion.div>
     );
   };
@@ -671,44 +781,13 @@ const UltimateTicTacToeGame: React.FC = () => {
         >
           <motion.button
             className="menu-btn player-vs-player"
-            onClick={() => startGame('player-vs-player')}
+            onClick={() => navigate('/')}
             variants={buttonVariants}
             whileHover="hover"
             whileTap="tap"
           >
-            Player vs Player
+            Back to Lobby
           </motion.button>
-          
-          <motion.button
-            className="menu-btn player-vs-ai"
-            onClick={() => startGame('ai-vs-player')}
-            variants={buttonVariants}
-            whileHover="hover"
-            whileTap="tap"
-          >
-            Player vs AI
-          </motion.button>
-          
-          <motion.button
-            className="menu-btn ai-vs-ai"
-            onClick={() => startGame('ai-vs-ai')}
-            variants={buttonVariants}
-            whileHover="hover"
-            whileTap="tap"
-          >
-            AI vs AI
-          </motion.button>
-        </motion.div>
-        
-        <motion.div
-          className="game-instructions"
-          variants={textVariants}
-        >
-          <h3>How to Play</h3>
-          <p>
-            Play in the small board corresponding to the last move.
-            Win three small boards in a row to win the game!
-          </p>
         </motion.div>
       </motion.div>
     );

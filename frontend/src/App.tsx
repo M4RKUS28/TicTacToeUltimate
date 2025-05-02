@@ -1,12 +1,16 @@
+// frontend/src/App.tsx
 import React from 'react';
 import './App.css';
-import UltimateTicTacToeGame from './components/UltimateTicTacToeGame';
+import { BrowserRouter } from 'react-router-dom';
+import AppRoutes from './routes';
 
 const App: React.FC = () => {
   return (
-    <div className="App">
-      <UltimateTicTacToeGame />
-    </div>
+    <BrowserRouter>
+      <div className="App">
+        <AppRoutes />
+      </div>
+    </BrowserRouter>
   );
 };
 
