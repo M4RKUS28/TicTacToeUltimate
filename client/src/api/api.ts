@@ -33,6 +33,8 @@ export const createGame = async (request: CreateGameRequest): Promise<CreateGame
     }
     
     return await response.json();
+
+    
   } catch (error) {
     console.error('Error creating game:', error);
     throw error;

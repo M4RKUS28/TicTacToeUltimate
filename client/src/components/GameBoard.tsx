@@ -125,6 +125,11 @@
     
       try {
         setIsLoading(true);
+        
+        console.log('Fetching game state for lobby:', lobbyId);
+        console.log('Fetching game state for lobby int:', Number(lobbyId));
+
+
         const data = await fetchGameState(Number(lobbyId));
         setGameState(data);
         setError(null);
