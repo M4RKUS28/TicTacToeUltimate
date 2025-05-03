@@ -1,5 +1,5 @@
 """
-Socket.IO event handlers for Tic Tac Toe Ultimate - simplified version
+Socket.IO event handlers for Tic Tac Toe Ultimate - with WebSocket integration
 """
 import json
 import threading
@@ -13,17 +13,56 @@ from game import initialize_game_state, apply_move
 # Initialize Socket.IO instance
 socketio = SocketIO()
 
-# Store active games in memory
+# Store active games in memory (will be shared with websocket_handler.py)
 active_games = {}
 
-# Store connected bots
-connected_bots = {}
+# Store connected bots via Socket.IO (legacy)
+connected_bots_socketio = {}
 
 # Store player to SID mapping
 player_sids = {}
 
 # Store SID to player mapping
 sid_players = {}
+
+# Reference to WebSocket handler (will be set in app.py)
+websocket_handler = None
+
+def emit_error_to_lobby(lobby_id, message):
+    """
+    Emit an error message to a lobby
+    
+    Args:
+        lobby_id: ID of the lobby
+        message: Error message
+    """
+    socketio.emit('error', {
+        'message': message
+    }, room=lobby_id)
+
+def emit_bot_move(lobby_id, bot_name, row, col):
+    """
+    Emit a bot move event from WebSocket to Socket.IO clients
+    
+    Args:
+        lobby_id: ID of the lobby
+        bot_name: Name of the bot
+        row: Row index of the move
+        col: Column index of the move
+    """
+    # Find lobby
+    lobby = Lobby.query.get(lobby_id)
+    if not lobby or not lobby.is_active:
+        return
+    
+    # Notify players about the move
+    socketio.emit('move_made', {
+        'lobby_id': lobby_id,
+        'player': bot_name,
+        'row': row,
+        'col': col,
+        'state': active_games.get(lobby_id, {})
+    }, room=lobby_id)
 
 @socketio.on('connect')
 def handle_connect():
@@ -75,11 +114,11 @@ def handle_disconnect():
                         'player': player_name
                     }, room=player_sids[lobby.player1])
     
-    # Check if this is a bot
-    for bot_name, bot_sid in list(connected_bots.items()):
+    # Check if this is a bot (legacy Socket.IO bots)
+    for bot_name, bot_sid in list(connected_bots_socketio.items()):
         if bot_sid == sid:
-            print(f"Bot disconnected: {bot_name}")
-            del connected_bots[bot_name]
+            print(f"Bot disconnected (Socket.IO): {bot_name}")
+            del connected_bots_socketio[bot_name]
             break
 
 @socketio.on('register_player')
@@ -107,7 +146,7 @@ def handle_register_player(data):
 @socketio.on('register_bot')
 def handle_register_bot(data):
     """
-    Register a bot with the server
+    Register a bot with the server via Socket.IO (legacy method)
     
     Expected data:
     {
@@ -121,14 +160,12 @@ def handle_register_bot(data):
         return
     
     # Register this SID for the bot
-    connected_bots[bot_name] = request.sid
+    connected_bots_socketio[bot_name] = request.sid
     
-    print(f"Bot registered: {bot_name} with SID: {request.sid}")
-    
-    # Acknowledge bot registration
+    print(f"Bot registered via Socket.IO (legacy): {bot_name} with SID: {request.sid}")
     emit('bot_registered', {
         'bot_name': bot_name,
-        'message': f"Bot {bot_name} registered successfully"
+        'message': f"Bot {bot_name} registered successfully via Socket.IO (legacy)"
     })
 
 @socketio.on('get_lobbies')
@@ -140,7 +177,11 @@ def handle_get_lobbies():
 @socketio.on('get_bots')
 def handle_get_bots():
     """Get list of available bots"""
-    emit('bots', list(connected_bots.keys()))
+    # Combine bots from both Socket.IO and WebSockets
+    socketio_bots = list(connected_bots_socketio.keys())
+    websocket_bots = websocket_handler.get_available_bots() if websocket_handler else []
+    
+    emit('bots', list(set(socketio_bots + websocket_bots)))
 
 @socketio.on('create_lobby')
 def handle_create_lobby(data):
@@ -170,7 +211,12 @@ def handle_create_lobby(data):
             emit('error', {'message': 'Bot name is required for bot games'})
             return
         
-        if bot_name not in connected_bots:
+        # Check both Socket.IO and WebSocket bots
+        socketio_bots = list(connected_bots_socketio.keys())
+        websocket_bots = websocket_handler.get_available_bots() if websocket_handler else []
+        all_bots = set(socketio_bots + websocket_bots)
+        
+        if bot_name not in all_bots:
             emit('error', {'message': f"Bot '{bot_name}' is not available"})
             return
     
@@ -293,9 +339,7 @@ def handle_start_game(data):
     
     # If vs bot and bot goes first, get bot's move
     if lobby.is_vs_bot and lobby.player1 == lobby.bot_name:
-        threading.Thread(target=request_bot_move, args=(
-            lobby_id, lobby.bot_name, game_state, None
-        )).start()
+        request_bot_move(lobby_id, lobby.bot_name, game_state, None)
 
 @socketio.on('make_move')
 def handle_make_move(data):
@@ -372,9 +416,7 @@ def handle_make_move(data):
         
         # If next player is a bot, request move
         if next_player == lobby.bot_name:
-            threading.Thread(target=request_bot_move, args=(
-                lobby_id, lobby.bot_name, updated_state, {'row': row, 'col': col}
-            )).start()
+            request_bot_move(lobby_id, lobby.bot_name, updated_state, {'row': row, 'col': col})
 
 @socketio.on('game_won')
 def handle_game_won(data):
@@ -405,6 +447,47 @@ def handle_game_won(data):
         'final_state': final_state
     }, room=lobby_id)
 
+@socketio.on('bot_move')
+def handle_bot_move(data):
+    """
+    Handle a move from a bot via Socket.IO (legacy method)
+    
+    Expected data:
+    {
+        'lobby_id': str,
+        'row': int,
+        'col': int
+    }
+    """
+    lobby_id = data.get('lobby_id')
+    row = data.get('row')
+    col = data.get('col')
+    
+    if not all([lobby_id, row is not None, col is not None]):
+        return
+    
+    # Find lobby
+    lobby = Lobby.query.get(lobby_id)
+    if not lobby or not lobby.is_active or not lobby.is_vs_bot:
+        return
+    
+    # Get bot name
+    bot_name = lobby.bot_name
+    if not bot_name:
+        return
+    
+    # Verify bot is making the move
+    if connected_bots_socketio.get(bot_name) != request.sid:
+        return
+    
+    # Make the move
+    socketio.emit('make_move', {
+        'lobby_id': lobby_id,
+        'player_name': bot_name,
+        'row': row,
+        'col': col
+    })
+
 def request_bot_move(lobby_id, bot_name, game_state, last_move):
     """
     Request a move from a bot
@@ -415,8 +498,13 @@ def request_bot_move(lobby_id, bot_name, game_state, last_move):
         game_state: Current game state
         last_move: Last move made by the player
     """
-    # Get the bot's socket ID
-    bot_sid = connected_bots.get(bot_name)
+    # First check if the bot is connected via WebSocket (preferred method)
+    if websocket_handler and bot_name in websocket_handler.get_available_bots():
+        websocket_handler.request_bot_move(lobby_id, bot_name, game_state, last_move)
+        return
+    
+    # Fall back to Socket.IO if bot is not connected via WebSocket
+    bot_sid = connected_bots_socketio.get(bot_name)
     if not bot_sid:
         socketio.emit('error', {
             'message': f"Bot '{bot_name}' is not connected"
@@ -479,44 +567,3 @@ def bot_timeout(lobby_id, bot_name):
         'final_state': game_state,
         'reason': 'Bot timeout'
     }, room=lobby_id)
-
-@socketio.on('bot_move')
-def handle_bot_move(data):
-    """
-    Handle a move from a bot
-    
-    Expected data:
-    {
-        'lobby_id': str,
-        'row': int,
-        'col': int
-    }
-    """
-    lobby_id = data.get('lobby_id')
-    row = data.get('row')
-    col = data.get('col')
-    
-    if not all([lobby_id, row is not None, col is not None]):
-        return
-    
-    # Find lobby
-    lobby = Lobby.query.get(lobby_id)
-    if not lobby or not lobby.is_active or not lobby.is_vs_bot:
-        return
-    
-    # Get bot name
-    bot_name = lobby.bot_name
-    if not bot_name:
-        return
-    
-    # Verify bot is making the move
-    if connected_bots.get(bot_name) != request.sid:
-        return
-    
-    # Make the move
-    socketio.emit('make_move', {
-        'lobby_id': lobby_id,
-        'player_name': bot_name,
-        'row': row,
-        'col': col
-    })
