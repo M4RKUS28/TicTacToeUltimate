@@ -1,7 +1,7 @@
 // src/api.ts
 import { CreateGameRequest, CreateGameResponse, GameState, Lobby, MakeMoveRequest } from '../interface/types';
   
-const API_BASE_URL = 'http://localhost/api';
+const API_BASE_URL = 'http://localhost:8000/api';
 
 export const fetchLobbies = async (): Promise<Lobby[]> => {
   try {
