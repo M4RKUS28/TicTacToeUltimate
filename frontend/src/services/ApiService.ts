@@ -9,6 +9,7 @@ export interface Lobby {
   name: string;
   status: string;
   players: Player[];
+  lobby_type: 'PLAYER_VS_PLAYER' | 'PLAYER_VS_BOT' | 'BOT_VS_BOT';
 }
 
 export interface Player {
