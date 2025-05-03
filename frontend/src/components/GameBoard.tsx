@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Mark from './Mark';
 import { GameState, Move } from '../types/GameTypes';
 import { isValidMove } from '../utils/GameUtils';
-import { boardVariants, cellVariants, winLineVariants } from '../utils/AnimationVariants';
 
 interface GameBoardProps {
   gameState: GameState;
@@ -46,7 +45,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
     return (
       <motion.div
         className={`cell ${playable ? 'playable' : ''}`}
-        variants={cellVariants}
         onClick={() => onCellClick(boardIndex, row, col)}
         whileHover={playable ? 'hover' : undefined}
         whileTap={playable ? 'tap' : undefined}
@@ -77,7 +75,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
           boards[boardIndex][i][1] === winner && 
           boards[boardIndex][i][2] === winner) {
         return (
-          <motion.div className="win-line horizontal" custom={i} variants={winLineVariants}>
+          <motion.div className="win-line horizontal" custom={i} >
             <svg width="100%" height="100%" viewBox="0 0 100 100">
               <motion.line
                 x1="10"
@@ -87,7 +85,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 stroke={winner === 'X' ? '#FF5252' : '#4CAF50'}
                 strokeWidth="3"
                 strokeLinecap="round"
-                variants={winLineVariants}
               />
             </svg>
           </motion.div>
@@ -101,7 +98,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
           boards[boardIndex][1][i] === winner && 
           boards[boardIndex][2][i] === winner) {
         return (
-          <motion.div className="win-line vertical" custom={i} variants={winLineVariants}>
+          <motion.div className="win-line vertical" custom={i} >
             <svg width="100%" height="100%" viewBox="0 0 100 100">
               <motion.line
                 x1={(i * 33.33) + 16.67}
@@ -111,7 +108,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 stroke={winner === 'X' ? '#FF5252' : '#4CAF50'}
                 strokeWidth="3"
                 strokeLinecap="round"
-                variants={winLineVariants}
               />
             </svg>
           </motion.div>
@@ -124,7 +120,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
         boards[boardIndex][1][1] === winner && 
         boards[boardIndex][2][2] === winner) {
       return (
-        <motion.div className="win-line diagonal-1" variants={winLineVariants}>
+        <motion.div className="win-line diagonal-1" >
           <svg width="100%" height="100%" viewBox="0 0 100 100">
             <motion.line
               x1="10"
@@ -134,7 +130,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
               stroke={winner === 'X' ? '#FF5252' : '#4CAF50'}
               strokeWidth="3"
               strokeLinecap="round"
-              variants={winLineVariants}
             />
           </svg>
         </motion.div>
@@ -146,7 +141,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
         boards[boardIndex][1][1] === winner && 
         boards[boardIndex][2][0] === winner) {
       return (
-        <motion.div className="win-line diagonal-2" variants={winLineVariants}>
+        <motion.div className="win-line diagonal-2" >
           <svg width="100%" height="100%" viewBox="0 0 100 100">
             <motion.line
               x1="90"
@@ -156,7 +151,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
               stroke={winner === 'X' ? '#FF5252' : '#4CAF50'}
               strokeWidth="3"
               strokeLinecap="round"
-              variants={winLineVariants}
             />
           </svg>
         </motion.div>
@@ -182,7 +176,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
     return (
       <motion.div 
         className={`board ${isActive ? 'active' : ''} ${isNextBoard ? 'next-board' : ''} ${winner ? `winner-${winner}` : ''}`}
-        variants={boardVariants}
         animate={boardState}
       >
         {winner ? (
@@ -213,7 +206,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
   return (
     <motion.div 
       className="ultimate-board"
-      variants={boardVariants}
       initial="hidden"
       animate="visible"
     >

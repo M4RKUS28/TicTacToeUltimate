@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CellValue } from '../types/GameTypes';
-import { xMarkVariants, oMarkVariants } from '../utils/AnimationVariants';
 
 interface MarkProps {
   type: CellValue;
@@ -32,7 +31,6 @@ const Mark: React.FC<MarkProps> = ({
                 stroke="#FF5252"
                 strokeWidth="3"
                 strokeLinecap="round"
-                variants={xMarkVariants}
                 initial="hidden"
                 animate="visible"
                 exit="exit"
@@ -43,7 +41,6 @@ const Mark: React.FC<MarkProps> = ({
                 stroke="#FF5252"
                 strokeWidth="3"
                 strokeLinecap="round"
-                variants={xMarkVariants}
                 initial="hidden"
                 animate="visible"
                 exit="exit"
@@ -83,7 +80,6 @@ const Mark: React.FC<MarkProps> = ({
               fill="none"
               stroke="#4CAF50"
               strokeWidth="3"
-              variants={oMarkVariants}
               initial="hidden"
               animate="visible"
               exit="exit"

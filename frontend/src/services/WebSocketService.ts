@@ -94,10 +94,11 @@ export class WebSocketService {
     }
   }
   
-  sendMove(boardIndex: number, row: number, col: number) {
+  // Update the sendMove method in WebSocketService.ts
+sendMove(move: { boardIndex: number, row: number, col: number, player: string }) {
     // Calculate global coordinates
-    const globalRow = Math.floor(boardIndex / 3) * 3 + row;
-    const globalCol = (boardIndex % 3) * 3 + col;
+    const globalRow = move.row;
+    const globalCol = move.col;
     
     this.sendMessage({
       message_type: 'move',

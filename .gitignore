@@ -6,6 +6,8 @@ frontned/.pnp
 .pnp.js
 
 backend/venv
+client/venv
+
 
 # testing
 frontend/coverage
