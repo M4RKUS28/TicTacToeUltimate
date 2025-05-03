@@ -9,7 +9,8 @@ export type BoardState = CellValue[][];
 export type UltimateBoardState = BoardState[];
 
 // Game modes
-export type GameMode = 'ai-vs-ai' | 'ai-vs-player' | 'player-vs-player';
+export type GameMode = 'player-vs-player' | 'ai-vs-player' | 'ai-vs-ai';
+export type APIGameMode = 'HUMAN' | 'AI1' | 'AI2' | 'AI_vsAI';
 
 // Game state interface
 export interface GameState {
@@ -22,6 +23,9 @@ export interface GameState {
   gameMode: GameMode;
   gameStarted: boolean;
   gameOver: boolean;
+  lobby_id?: number;
+  player_id?: string | null;
+  player?: string; // Current player's turn according to API
 }
 
 // Move interface
@@ -32,20 +36,6 @@ export interface Move {
   player: Player;
 }
 
-// Socket event payloads
-export interface BoardStatePayload {
-  boards: UltimateBoardState;
-  currentPlayer: Player;
-  nextBoard: number | null;
-}
-
-export interface ServerMovePayload extends Move {
-  timestamp: number;
-}
-
-// AI difficulty levels (for future implementation)
-export type AIDifficulty = 'easy' | 'medium' | 'hard';
-
 // Game result for statistics
 export interface GameResult {
   winner: CellValue;
@@ -54,3 +44,32 @@ export interface GameResult {
   duration: number; // in seconds
   timestamp: number;
 }
+
+// Mapping from API game modes to local game modes
+export const mapAPIGameMode = (apiMode: APIGameMode): GameMode => {
+  switch (apiMode) {
+    case 'HUMAN':
+      return 'player-vs-player';
+    case 'AI1':
+    case 'AI2':
+      return 'ai-vs-player';
+    case 'AI_vsAI':
+      return 'ai-vs-ai';
+    default:
+      return 'player-vs-player';
+  }
+};
+
+// Mapping from local game modes to API game modes
+export const mapLocalGameMode = (localMode: GameMode): APIGameMode => {
+  switch (localMode) {
+    case 'player-vs-player':
+      return 'HUMAN';
+    case 'ai-vs-player':
+      return 'AI1'; // Default to AI1, can be changed
+    case 'ai-vs-ai':
+      return 'AI_vsAI';
+    default:
+      return 'HUMAN';
+  }
+};
