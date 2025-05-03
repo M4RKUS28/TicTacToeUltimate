@@ -1,0 +1,172 @@
+
+// src/GameBoard.css
+.game-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.game-header h1 {
+  font-size: 28px;
+  margin: 0;
+  color: #333;
+}
+
+.home-btn {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.home-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.game-status {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  padding: 12px;
+  border-radius: 8px;
+  background-color: #f1f8e9;
+  color: #2e7d32;
+}
+
+.game-status.game-end {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  font-size: 28px;
+}
+
+.game-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 15px;
+  margin: 0 auto;
+  max-width: 800px;
+  background-color: #2c3e50;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.board-position {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+}
+
+.small-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 4px;
+  height: 100%;
+  width: 100%;
+  background-color: #34495e;
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.small-board.active-board {
+  background-color: #3498db;
+  transform: scale(1.02);
+  box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+}
+
+.small-board.won-by-player1 {
+  background-color: rgba(231, 76, 60, 0.5);
+}
+
+.small-board.won-by-player2 {
+  background-color: rgba(46, 204, 113, 0.5);
+}
+
+.small-board.drawn-board {
+  background-color: rgba(149, 165, 166, 0.5);
+}
+
+.cell {
+  background-color: #ecf0f1;
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: default;
+  transition: all 0.15s ease;
+}
+
+.cell.playable {
+  cursor: pointer;
+}
+
+.cell.playable:hover {
+  background-color: #bdc3c7;
+}
+
+.cell.player1 {
+  color: #e74c3c;
+}
+
+.cell.player2 {
+  color: #2ecc71;
+}
+
+.end-game-modal {
+  background-color: white;
+  width: 90%;
+  max-width: 400px;
+  padding: 25px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.end-game-modal h2 {
+  margin-top: 0;
+  font-size: 28px;
+  color: #333;
+}
+
+.end-game-modal p {
+  font-size: 18px;
+  margin-bottom: 25px;
+}
+
+.end-game-modal .home-btn {
+  background-color: #4caf50;
+  color: white;
+  font-size: 16px;
+  padding: 12px 24px;
+}
+
+.end-game-modal .home-btn:hover {
+  background-color: #388e3c;
+}
+
+@media (max-width: 768px) {
+  .game-header {
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .game-status {
+    font-size: 20px;
+  }
+  
+  .cell {
+    font-size: 16px;
+  }
+}
