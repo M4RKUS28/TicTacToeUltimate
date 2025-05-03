@@ -26,7 +26,7 @@ import {
   menuVariants,
   containerVariants
 } from '../utils/AnimationVariants';
-import ConfettiEffect from './ConfettiEffect';
+
 
 // Initial game state
 const initialGameState: GameState = {
@@ -689,10 +689,8 @@ const UltimateTicTacToeGame: React.FC = () => {
                   </div>
                 </motion.div>
               )}
-              
-              {gameState.winner && (
-                <ConfettiEffect winner={gameState.winner} />
-              )}
+            
+
             </motion.div>
             
             <motion.div
