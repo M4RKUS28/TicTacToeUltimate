@@ -185,3 +185,45 @@
       grid-template-columns: 1fr;
     }
   }
+
+
+  /* Add these styles to frontend/src/components/LobbyPage.css */
+
+.bot-selection {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+  }
+  
+  .bot-option {
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+  
+  .bot-option:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .bot-option.selected {
+    background-color: rgba(76, 175, 80, 0.2);
+    box-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
+  }
+  
+  .selected-bots-info {
+    margin-top: 15px;
+    font-size: 0.9rem;
+    opacity: 0.8;
+  }
+  
+  .no-bots-message {
+    padding: 10px;
+    text-align: center;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    margin-top: 10px;
+  }

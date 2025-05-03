@@ -13,20 +13,7 @@ import {
 import { webSocketService } from '../services/WebSocketService';
 import apiService from '../services/ApiService';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  boardVariants,
-  cellVariants,
-  gameBoardVariants,
-  xMarkVariants,
-  oMarkVariants,
-  buttonVariants,
-  textVariants,
-  winnerVariants,
-  winLineVariants,
-  menuVariants,
-  containerVariants
-} from '../utils/AnimationVariants';
-import ConfettiEffect from './ConfettiEffect';
+
 
 // Initial game state
 const initialGameState: GameState = {
@@ -347,7 +334,6 @@ const UltimateTicTacToeGame: React.FC = () => {
     return (
       <motion.div
         className={`cell ${playable ? 'playable' : ''}`}
-        variants={cellVariants}
         onClick={() => handleCellClick(boardIndex, row, col)}
         whileHover={playable ? 'hover' : undefined}
         whileTap={playable ? 'tap' : undefined}
@@ -368,14 +354,13 @@ const UltimateTicTacToeGame: React.FC = () => {
                   stroke="#FF5252"
                   strokeWidth="3"
                   strokeLinecap="round"
-                  variants={xMarkVariants}
-                />
+
+                  />
                 <motion.path
                   d="M 19 5 L 5 19"
                   stroke="#FF5252"
                   strokeWidth="3"
                   strokeLinecap="round"
-                  variants={xMarkVariants}
                   transition={{ delay: 0.1 }}
                 />
               </svg>
@@ -398,7 +383,6 @@ const UltimateTicTacToeGame: React.FC = () => {
                   fill="none"
                   stroke="#4CAF50"
                   strokeWidth="3"
-                  variants={oMarkVariants}
                 />
               </svg>
             </motion.div>
@@ -423,7 +407,7 @@ const UltimateTicTacToeGame: React.FC = () => {
           boards[boardIndex][i][1] === winner && 
           boards[boardIndex][i][2] === winner) {
         return (
-          <motion.div className="win-line horizontal" custom={i} variants={winLineVariants}>
+          <motion.div className="win-line horizontal" custom={i} >
             <svg width="100%" height="100%" viewBox="0 0 100 100">
               <motion.line
                 x1="10"
@@ -433,7 +417,6 @@ const UltimateTicTacToeGame: React.FC = () => {
                 stroke={winner === 'X' ? '#FF5252' : '#4CAF50'}
                 strokeWidth="3"
                 strokeLinecap="round"
-                variants={winLineVariants}
               />
             </svg>
           </motion.div>
@@ -447,7 +430,7 @@ const UltimateTicTacToeGame: React.FC = () => {
           boards[boardIndex][1][i] === winner && 
           boards[boardIndex][2][i] === winner) {
         return (
-          <motion.div className="win-line vertical" custom={i} variants={winLineVariants}>
+          <motion.div className="win-line vertical" custom={i} >
             <svg width="100%" height="100%" viewBox="0 0 100 100">
               <motion.line
                 x1={(i * 33.33) + 16.67}
@@ -457,7 +440,6 @@ const UltimateTicTacToeGame: React.FC = () => {
                 stroke={winner === 'X' ? '#FF5252' : '#4CAF50'}
                 strokeWidth="3"
                 strokeLinecap="round"
-                variants={winLineVariants}
               />
             </svg>
           </motion.div>
@@ -470,7 +452,7 @@ const UltimateTicTacToeGame: React.FC = () => {
         boards[boardIndex][1][1] === winner && 
         boards[boardIndex][2][2] === winner) {
       return (
-        <motion.div className="win-line diagonal-1" variants={winLineVariants}>
+        <motion.div className="win-line diagonal-1" >
           <svg width="100%" height="100%" viewBox="0 0 100 100">
             <motion.line
               x1="10"
@@ -480,7 +462,6 @@ const UltimateTicTacToeGame: React.FC = () => {
               stroke={winner === 'X' ? '#FF5252' : '#4CAF50'}
               strokeWidth="3"
               strokeLinecap="round"
-              variants={winLineVariants}
             />
           </svg>
         </motion.div>
@@ -492,7 +473,7 @@ const UltimateTicTacToeGame: React.FC = () => {
         boards[boardIndex][1][1] === winner && 
         boards[boardIndex][2][0] === winner) {
       return (
-        <motion.div className="win-line diagonal-2" variants={winLineVariants}>
+        <motion.div className="win-line diagonal-2" >
           <svg width="100%" height="100%" viewBox="0 0 100 100">
             <motion.line
               x1="90"
@@ -502,7 +483,7 @@ const UltimateTicTacToeGame: React.FC = () => {
               stroke={winner === 'X' ? '#FF5252' : '#4CAF50'}
               strokeWidth="3"
               strokeLinecap="round"
-              variants={winLineVariants}
+              
             />
           </svg>
         </motion.div>
@@ -530,7 +511,6 @@ const UltimateTicTacToeGame: React.FC = () => {
     return (
       <motion.div 
         className={`board ${isActive ? 'active' : ''} ${isNextBoard ? 'next-board' : ''} ${winner ? `winner-${winner}` : ''}`}
-        variants={boardVariants}
         animate={boardState}
       >
         {winner ? (
@@ -598,14 +578,14 @@ const UltimateTicTacToeGame: React.FC = () => {
     return (
       <motion.div 
         className="game-container"
-        variants={containerVariants}
+        
         initial="hidden"
         animate="visible"
       >
         {waitingForOpponent ? (
           <motion.div
             className="waiting-message"
-            variants={textVariants}
+            
             initial="hidden"
             animate="visible"
           >
@@ -616,7 +596,7 @@ const UltimateTicTacToeGame: React.FC = () => {
           <>
             <motion.div
               className="ultimate-board"
-              variants={gameBoardVariants}
+              
             >
               {Array(9).fill(null).map((_, index) => (
                 <div key={`board-${index}`} className="board-wrapper">
@@ -627,7 +607,7 @@ const UltimateTicTacToeGame: React.FC = () => {
               {showWinAnimation && gameState.winner && (
                 <motion.div
                   className="game-winner"
-                  variants={winnerVariants}
+                  
                   initial="hidden"
                   animate="visible"
                   exit="exit"
@@ -639,7 +619,7 @@ const UltimateTicTacToeGame: React.FC = () => {
                     <motion.button
                       className="play-again-btn"
                       onClick={resetGame}
-                      variants={buttonVariants}
+                      
                       whileHover="hover"
                       whileTap="tap"
                     >
@@ -648,7 +628,7 @@ const UltimateTicTacToeGame: React.FC = () => {
                     <motion.button
                       className="menu-btn"
                       onClick={goToMenu}
-                      variants={buttonVariants}
+                      
                       whileHover="hover"
                       whileTap="tap"
                     >
@@ -661,7 +641,7 @@ const UltimateTicTacToeGame: React.FC = () => {
               {gameState.gameOver && !gameState.winner && (
                 <motion.div
                   className="game-winner"
-                  variants={winnerVariants}
+                  
                   initial="hidden"
                   animate="visible"
                   exit="exit"
@@ -671,7 +651,7 @@ const UltimateTicTacToeGame: React.FC = () => {
                     <motion.button
                       className="play-again-btn"
                       onClick={resetGame}
-                      variants={buttonVariants}
+                      
                       whileHover="hover"
                       whileTap="tap"
                     >
@@ -680,7 +660,7 @@ const UltimateTicTacToeGame: React.FC = () => {
                     <motion.button
                       className="menu-btn"
                       onClick={goToMenu}
-                      variants={buttonVariants}
+                      
                       whileHover="hover"
                       whileTap="tap"
                     >
@@ -690,14 +670,11 @@ const UltimateTicTacToeGame: React.FC = () => {
                 </motion.div>
               )}
               
-              {gameState.winner && (
-                <ConfettiEffect winner={gameState.winner} />
-              )}
             </motion.div>
             
             <motion.div
               className="game-info"
-              variants={textVariants}
+              
             >
               <div className="current-player">
                 <h3>Current Player: 
@@ -734,7 +711,7 @@ const UltimateTicTacToeGame: React.FC = () => {
                 <motion.button
                   className="reset-btn"
                   onClick={resetGame}
-                  variants={buttonVariants}
+                  
                   whileHover="hover"
                   whileTap="tap"
                   disabled={!connected}
@@ -744,7 +721,7 @@ const UltimateTicTacToeGame: React.FC = () => {
                 <motion.button
                   className="menu-btn"
                   onClick={goToMenu}
-                  variants={buttonVariants}
+                  
                   whileHover="hover"
                   whileTap="tap"
                 >
@@ -763,26 +740,25 @@ const UltimateTicTacToeGame: React.FC = () => {
     return (
       <motion.div
         className="menu-container"
-        variants={menuVariants}
         initial="hidden"
         animate="visible"
         exit="exit"
       >
         <motion.h1
           className="game-title"
-          variants={textVariants}
+          
         >
           Ultimate Tic Tac Toe
         </motion.h1>
         
         <motion.div
           className="menu-buttons"
-          variants={containerVariants}
+          
         >
           <motion.button
             className="menu-btn player-vs-player"
             onClick={() => navigate('/')}
-            variants={buttonVariants}
+            
             whileHover="hover"
             whileTap="tap"
           >

@@ -1,4 +1,4 @@
-//src/services/ApiService.ts
+// frontend/src/services/ApiService.ts
 import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8080/api';
@@ -9,13 +9,15 @@ export interface Lobby {
   name: string;
   status: string;
   players: Player[];
-  lobby_type: 'PLAYER_VS_PLAYER' | 'PLAYER_VS_BOT' | 'BOT_VS_BOT';
+  lobby_type: string;
+  available_bots: string[];
 }
 
 export interface Player {
   id: string;
   name: string;
   player_type: string;
+  player_number: number;
 }
 
 export interface CreateLobbyResponse {
@@ -56,13 +58,15 @@ class ApiService {
   async createLobby(
     name: string,
     playerName: string,
-    lobbyType: 'player_vs_player' | 'player_vs_bot' | 'bot_vs_bot'
+    lobbyType: 'player_vs_player' | 'player_vs_bot' | 'bot_vs_bot',
+    selectedBots?: string[]
   ): Promise<CreateLobbyResponse | null> {
     try {
       const response = await axios.post(`${API_BASE_URL}/lobbies`, {
         name,
         player_name: playerName,
-        lobby_type: lobbyType
+        lobby_type: lobbyType,
+        selected_bots: selectedBots
       });
       return response.data;
     } catch (error) {
@@ -81,6 +85,28 @@ class ApiService {
     } catch (error) {
       console.error(`Failed to join lobby ${id}:`, error);
       return null;
+    }
+  }
+
+  // Start a game
+  async startGame(id: string): Promise<boolean> {
+    try {
+      await axios.post(`${API_BASE_URL}/lobbies/${id}/start`);
+      return true;
+    } catch (error) {
+      console.error(`Failed to start game ${id}:`, error);
+      return false;
+    }
+  }
+
+  // Get available bots
+  async getAvailableBots(): Promise<string[]> {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/bots`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch available bots:', error);
+      return [];
     }
   }
 }
