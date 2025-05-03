@@ -1,10 +1,20 @@
-// src/services/ApiService.js
 import axios from 'axios';
+import { GameState } from '../types/GameTypes';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
+export interface Lobby {
+  lobby_id: number;
+  name: string;
+}
+
+export interface CreateGameResponse {
+  lobby_id: number;
+  player_id: string | null;
+}
+
 class ApiService {
-  async getLobbies() {
+  async getLobbies(): Promise<Lobby[]> {
     try {
       const response = await axios.get(`${API_BASE_URL}/lobbies`);
       return response.data;
@@ -14,18 +24,17 @@ class ApiService {
     }
   }
 
-  async getGameState(lobby_id) {
+  async getGameState(lobby_id: number): Promise<GameState | null> {
     try {
       const response = await axios.get(`${API_BASE_URL}/game_state/${lobby_id}`);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch getGameState:', error);
-      return [];
+      return null;
     }
   }
 
-
-  async makeMove(lobby_id, player_id, coords) {
+  async makeMove(lobby_id: number, player_id: string, coords: { boardIndex: number, row: number, col: number }) {
     try {
       const response = await axios.post(`${API_BASE_URL}/make_move/${lobby_id}`, {
         player: player_id,
@@ -38,7 +47,7 @@ class ApiService {
     }
   }
 
-  async createGame(lobbyName, enemy) {
+  async createGame(lobbyName: string, enemy: 'AI_vsAI' | 'HUMAN' | 'AI1' | 'AI2'): Promise<CreateGameResponse | null> {
     try {
       const response = await axios.post(`${API_BASE_URL}/create_game`, {
         name: lobbyName,
@@ -48,28 +57,6 @@ class ApiService {
     } catch (error) {
       console.error('Failed to create game:', error);
       return null;
-    }
-  }
-
-  // Start a game
-  async startGame(id: string): Promise<boolean> {
-    try {
-      await axios.post(`${API_BASE_URL}/lobbies/${id}/start`);
-      return true;
-    } catch (error) {
-      console.error(`Failed to start game ${id}:`, error);
-      return false;
-    }
-  }
-
-  // Get available bots
-  async getAvailableBots(): Promise<string[]> {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/bots`);
-      return response.data;
-    } catch (error) {
-      console.error('Failed to fetch available bots:', error);
-      return [];
     }
   }
 }

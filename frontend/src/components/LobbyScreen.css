@@ -1,0 +1,219 @@
+/* Lobby Screen Styles */
+.lobby-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    width: 100%;
+    background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
+    color: white;
+    font-family: 'Roboto', sans-serif;
+    overflow: hidden;
+    padding: 20px;
+  }
+  
+  .lobby-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 1000px;
+    gap: 30px;
+  }
+  
+  .lobby-title {
+    font-size: 4rem;
+    margin: 0;
+    text-align: center;
+    background: linear-gradient(45deg, #FF5252, #FF1493);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(255, 82, 82, 0.3);
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+  
+  .lobby-controls {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 600px;
+  }
+  
+  .create-game-btn, .refresh-btn, .join-btn {
+    padding: 14px 24px;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .create-game-btn {
+    background: linear-gradient(45deg, #FF5252, #FF1493);
+    flex: 2;
+  }
+  
+  .refresh-btn {
+    background: linear-gradient(45deg, #3498db, #2980b9);
+    flex: 1;
+  }
+  
+  .create-game-btn:hover, .refresh-btn:hover, .join-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  }
+  
+  .create-game-btn:active, .refresh-btn:active, .join-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  }
+  
+  .refresh-btn:disabled {
+    background: #666;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  
+  .lobbies-list {
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  }
+  
+  .lobbies-list h2 {
+    text-align: center;
+    margin-top: 0;
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+    color: #f8f8f8;
+  }
+  
+  .lobbies-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+  }
+  
+  .lobby-card {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  .lobby-card:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+  
+  .lobby-card h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #f8f8f8;
+    font-size: 1.4rem;
+  }
+  
+  .lobby-card p {
+    margin: 5px 0;
+    color: #ccc;
+    font-size: 0.9rem;
+  }
+  
+  .join-btn {
+    background: linear-gradient(45deg, #4CAF50, #2E7D32);
+    padding: 10px 15px;
+    margin-top: 15px;
+    border-radius: 5px;
+    align-self: center;
+  }
+  
+  .loading-indicator, .no-lobbies {
+    text-align: center;
+    padding: 30px;
+    color: #ccc;
+    font-style: italic;
+  }
+  
+  .error-message {
+    background-color: rgba(255, 82, 82, 0.2);
+    color: #FF5252;
+    padding: 10px 20px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 82, 82, 0.5);
+    margin-bottom: 10px;
+    text-align: center;
+    width: 100%;
+    max-width: 600px;
+  }
+  
+  /* Modal styles for create game form */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+  
+  .modal-content {
+    background-color: #16213e;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  /* Responsive styles */
+  @media (max-width: 768px) {
+    .lobby-title {
+      font-size: 2.5rem;
+    }
+    
+    .lobbies-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .create-game-btn, .refresh-btn {
+      padding: 12px 20px;
+      font-size: 1rem;
+    }
+  }
+  
+  @keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  @keyframes glow {
+    from {
+      text-shadow: 0 0 5px rgba(255, 82, 82, 0.5), 0 0 10px rgba(255, 82, 82, 0.3);
+    }
+    to {
+      text-shadow: 0 0 10px rgba(255, 82, 82, 0.7), 0 0 20px rgba(255, 82, 82, 0.5);
+    }
+  }
